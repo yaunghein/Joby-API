@@ -42,6 +42,10 @@ app.use(express.json())
 app.use(cookieParser())
 app.use(fileUpload({ useTempFiles: true }))
 app.use(helmet())
+app.use((req, res, next) => {
+	res.header('Access-Control-Allow-Origin', 'https://job-y.vercel.app/')
+	next()
+})
 app.use(cors())
 app.use(xssClean())
 
