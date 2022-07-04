@@ -1,18 +1,69 @@
+const crypto = require('crypto')
 const { StatusCodes } = require('http-status-codes')
 const { BadRequestError, UnauthenticatedError } = require('../errors')
 const User = require('../models/User')
+const { sendVerificationEmail } = require('../utils')
 
 const register = async (req, res) => {
 	const existingUser = await User.findOne({ email: req.body.email })
 	if (existingUser) {
 		throw new BadRequestError('User with this email has already existed.')
 	}
+	req.body.verificationToken = crypto.randomBytes(40).toString('hex')
 	const user = await User.create(req.body)
-	const token = user.createJWT()
-	res.status(StatusCodes.CREATED).json({
-		user: { name: user.name },
-		token,
+	await sendVerificationEmail({
+		name: user.name,
+		email: user.email,
+		verificationToken: user.verificationToken,
+		origin: process.env.ORIGIN || 'http://localhost:3000',
 	})
+	res
+		.status(StatusCodes.CREATED)
+		.json({ msg: 'Success! Please check your email to verify your account.' })
+}
+
+const sendVerificationEmailAgain = async (req, res) => {
+	const user = await User.findOne({ email: req.body.email })
+	const verificationToken = crypto.randomBytes(40).toString('hex')
+	const updatedUser = await User.findOneAndUpdate(
+		{ email: req.body.email },
+		{ _id: user._id, verificationToken },
+		{ new: true, runValidators: true }
+	)
+	await sendVerificationEmail({
+		name: updatedUser.name,
+		email: updatedUser.email,
+		verificationToken: updatedUser.verificationToken,
+		origin: process.env.ORIGIN || 'http://localhost:3000',
+	})
+
+	res
+		.status(StatusCodes.OK)
+		.json({ msg: 'Success! Please check your email to verify your account.' })
+}
+
+const verifyEmail = async (req, res) => {
+	const { verificationToken, email } = req.body
+	const user = await User.findOne({ email })
+	if (!user) {
+		throw new UnauthenticatedError('Verification failed.')
+	}
+	if (user.isVerified) {
+		throw new BadRequestError('Already verified.')
+	}
+	if (user.verificationToken !== verificationToken) {
+		throw new UnauthenticatedError('Verification failed.')
+	}
+	await User.findOneAndUpdate(
+		{ email },
+		{
+			isVerified: true,
+			verifiedAt: Date.now(),
+			verificationToken: '',
+			_id: user._id,
+		}
+	)
+	res.status(StatusCodes.OK).json({ msg: 'Success! Email verified.' })
 }
 
 const login = async (req, res) => {
@@ -28,6 +79,9 @@ const login = async (req, res) => {
 	if (!isPasswordMatch) {
 		throw new UnauthenticatedError('Invalid credentials.')
 	}
+	if (!user.isVerified) {
+		throw new UnauthenticatedError('Please verify your email.')
+	}
 	const token = user.createJWT()
 	res.status(StatusCodes.OK).json({
 		user: { name: user.name },
@@ -35,4 +89,30 @@ const login = async (req, res) => {
 	})
 }
 
-module.exports = { register, login }
+const forgotPassword = async (req, res) => {
+	const { email } = req.body
+	if (!email) {
+		throw new BadRequestError('Please provide email of your account.')
+	}
+	const user = await User.findOne({ email })
+	if (user) {
+		const passwordToken = crypto.randomBytes(70).toString('hex')
+		const tenMinutes = 1000 * 60 * 10
+		const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes)
+		await User.findOneAndUpdate(
+			{ email },
+			{ _id: user._id, passwordToken, passwordTokenExpirationDate }
+		)
+	}
+	res
+		.status(StatusCodes.OK)
+		.json({ msg: 'Success! Please check your email for password reset' })
+}
+
+module.exports = {
+	register,
+	login,
+	verifyEmail,
+	forgotPassword,
+	sendVerificationEmailAgain,
+}
