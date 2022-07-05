@@ -1,4 +1,5 @@
 const sendEmail = require('./sendEmail')
+const generateEmailTemplate = require('./generateEmailTemplate')
 
 const sendVerificationEmail = async ({
 	name,
@@ -7,7 +8,13 @@ const sendVerificationEmail = async ({
 	origin,
 }) => {
 	const frontendEmailVerificationLink = `${origin}/auth/verify-email?token=${verificationToken}&email=${email}`
-	const html = `<h4>Hello, ${name},</h4><p>Please confirm your email by clicking on the following link: <a href="${frontendEmailVerificationLink}" target="_blank">Verify Email</a>.</p>`
+	const html = generateEmailTemplate({
+		name,
+		description:
+			'Welcome to Joby! Please click the button below to confirm your email.',
+		link: frontendEmailVerificationLink,
+		buttonLabel: 'Verify Email',
+	})
 	return sendEmail({
 		to: email,
 		subject: 'Email Verification',

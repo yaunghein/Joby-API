@@ -1,4 +1,5 @@
 const sendEmail = require('./sendEmail')
+const generateEmailTemplate = require('./generateEmailTemplate')
 
 const sendPasswordResetEmail = async ({
 	name,
@@ -7,7 +8,13 @@ const sendPasswordResetEmail = async ({
 	origin,
 }) => {
 	const frontendPasswordResetLink = `${origin}/auth/reset-password?token=${passwordToken}&email=${email}`
-	const html = `<h4>Hello ${name},</h4><p>To reset your password, please click on the following link: <a href="${frontendPasswordResetLink}" target="_blank">Reset Password</a>.</p>`
+	const html = generateEmailTemplate({
+		name,
+		description: 'To reset your password, please click the button below.',
+		link: frontendPasswordResetLink,
+		buttonLabel: 'Reset Password',
+	})
+	console.log('reach')
 	return sendEmail({
 		to: email,
 		subject: 'Reset Password',
