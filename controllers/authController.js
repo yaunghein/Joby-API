@@ -5,6 +5,7 @@ const User = require('../models/User')
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils')
 
 const register = async (req, res) => {
+	req.body.email = req.body.email.toLowerCase()
 	const existingUser = await User.findOne({ email: req.body.email })
 	if (existingUser) {
 		throw new BadRequestError('User with this email has already existed.')
