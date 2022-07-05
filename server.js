@@ -52,7 +52,7 @@ app.use(xssClean())
 app.get('/', (req, res) => res.send('Joby API'))
 app.use('/api/v1/auth', authRouter)
 app.use('/api/v1/jobs', authenticationMiddleware, jobsRouter)
-app.use('/api/v1/users', authenticationMiddleware, usersRouter)
+app.use('/api/v1/users', usersRouter)
 
 app.use(notFoundMiddleware)
 app.use(errorHandlerMiddleware)

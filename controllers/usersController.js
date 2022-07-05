@@ -7,9 +7,7 @@ const { NotFoundError, BadRequestError } = require('../errors')
 
 const getUser = async (req, res) => {
 	const { userID } = req.user
-	const user = await User.findOne({ _id: userID }).select(
-		'-password -_id -__v'
-	)
+	const user = await User.findOne({ _id: userID }).select('-password -_id -__v')
 	if (!user) {
 		throw new NotFoundError(`No user with ID: ${userID}`)
 	}
@@ -61,4 +59,9 @@ const uploadAvatar = async (req, res) => {
 	res.status(StatusCodes.OK).json({ url: response.secure_url })
 }
 
-module.exports = { uploadAvatar, updateUser, getUser }
+const getTotalUsersCount = async (req, res) => {
+	const count = await User.countDocuments({})
+	res.status(StatusCodes.OK).json({ count })
+}
+
+module.exports = { uploadAvatar, updateUser, getUser, getTotalUsersCount }
