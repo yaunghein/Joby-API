@@ -2,7 +2,7 @@ const crypto = require('crypto')
 const { StatusCodes } = require('http-status-codes')
 const { BadRequestError, UnauthenticatedError } = require('../errors')
 const User = require('../models/User')
-const { sendVerificationEmail } = require('../utils')
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils')
 
 const register = async (req, res) => {
 	const existingUser = await User.findOne({ email: req.body.email })
@@ -99,14 +99,44 @@ const forgotPassword = async (req, res) => {
 		const passwordToken = crypto.randomBytes(70).toString('hex')
 		const tenMinutes = 1000 * 60 * 10
 		const passwordTokenExpirationDate = new Date(Date.now() + tenMinutes)
-		await User.findOneAndUpdate(
+		const updatedUser = await User.findOneAndUpdate(
 			{ email },
-			{ _id: user._id, passwordToken, passwordTokenExpirationDate }
+			{ _id: user._id, passwordToken, passwordTokenExpirationDate },
+			{ new: true, runValidators: true }
 		)
+		await sendPasswordResetEmail({
+			name: updatedUser.name,
+			email: updatedUser.email,
+			passwordToken: updatedUser.passwordToken,
+			origin: process.env.ORIGIN || 'http://localhost:3000',
+		})
 	}
 	res
 		.status(StatusCodes.OK)
-		.json({ msg: 'Success! Please check your email for password reset' })
+		.json({ msg: 'Success! Please check your email for password reset link.' })
+}
+
+const resetPassword = async (req, res) => {
+	const { token, email, newPassword } = req.body
+	if (!token || !email || !newPassword) {
+		throw new BadRequestError('Please provide all values.')
+	}
+	const user = await User.findOne({ email })
+	if (!user) {
+		throw new UnauthenticatedError('Password reset process failed.')
+	}
+	const currentDate = new Date()
+	if (currentDate > user.passwordTokenExpirationDate) {
+		throw new UnauthenticatedError('Password reset token is expired.')
+	}
+	if (token !== user.passwordToken) {
+		throw new UnauthenticatedError('Password reset process failed.')
+	}
+	user.password = newPassword
+	user.passwordToken = null
+	user.passwordTokenExpirationDate = null
+	await user.save()
+	res.status(StatusCodes.OK).json({ msg: 'Success! Password is changed.' })
 }
 
 module.exports = {
@@ -114,5 +144,6 @@ module.exports = {
 	login,
 	verifyEmail,
 	forgotPassword,
+	resetPassword,
 	sendVerificationEmailAgain,
 }
