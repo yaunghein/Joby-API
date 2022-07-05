@@ -34,8 +34,9 @@ const app = express()
 app.set('trust proxy', 1)
 app.use(
 	rateLimiter({
-		windowMs: 15 * 60 * 1000,
-		max: 500,
+		// 😾
+		windowMs: 60 * 60 * 1000,
+		max: 20,
 	})
 )
 app.use(express.json())
